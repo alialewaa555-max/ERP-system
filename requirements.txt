@@ -1,0 +1,8 @@
+streamlit==1.38.0
+pandas==2.2.2
+numpy==1.26.4
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+pytesseract==0.3.13
+folium==0.17.0
+streamlit-folium==0.22.0
