@@ -209,7 +209,7 @@ def log_action(action: str, details: str):
 t = TRANSLATIONS[st.session_state['lang']]
 
 # ==============================================================================
-# 5. LOGIN SCREEN
+# 5. LOGIN SCREEN (مرتبط مباشرة بقاعدة بيانات Supabase)
 # ==============================================================================
 def login_screen():
     st.markdown("<h1 style='text-align: center;'>🔐 نظام Suleiman ERP للمقاولات</h1>", unsafe_allow_html=True)
@@ -219,31 +219,66 @@ def login_screen():
     with col2:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         with st.form("login_form"):
-            username = st.text_input("اسم المستخدم (Username)")
-            password = st.text_input("كلمة المرور (Password)", type="password")
+            username_input = st.text_input("اسم المستخدم (Username)")
+            password_input = st.text_input("كلمة المرور (Password)", type="password")
             submit = st.form_submit_button("تسجيل الدخول 🚀")
             
             if submit:
-                users = st.session_state['users_db']
-                match = users[users['username'] == username]
+                clean_username = username_input.strip()
+                clean_password = password_input.strip()
                 
-                if not match.empty and password in ["admin123", "123456"]:
-                    user_data = match.iloc[0].to_dict()
-                    if user_data['status'] == "محظور":
-                        st.error("❌ هذا الحساب محظور حالياً. يرجى مراجعة م. سليمان نبهان.")
-                    else:
-                        st.session_state['user'] = {
+                user_authenticated = False
+                user_info = None
+
+                # 1. المحاولة الأولى: الاستعلام المباشر من جدول users في Supabase
+                if supabase:
+                    try:
+                        response = supabase.table("users").select("*").eq("username", clean_username).execute()
+                        records = response.data
+                        
+                        if records:
+                            db_user = records[0]
+                            # المطابقة مع كلمة المرور المخزنة في Supabase
+                            if db_user.get("password") == clean_password or db_user.get("password_hash") == clean_password:
+                                if db_user.get("status") == "محظور":
+                                    st.error("❌ هذا الحساب محظور حالياً. يرجى مراجعة م. سليمان نبهان.")
+                                    st.stop()
+                                user_authenticated = True
+                                user_info = {
+                                    "name": db_user.get("full_name", db_user.get("username")),
+                                    "username": db_user.get("username"),
+                                    "role": db_user.get("role", "ADMIN")
+                                }
+                    except Exception as e:
+                        st.warning("⚠️ تعذر الاتصال بجدول Supabase، جاري استخدام ذاكرة النظام المؤقتة.")
+
+                # 2. المحاولة الثانية (الاحتياطية): الذاكرة المحلية في حال عدم توفر Supabase
+                if not user_authenticated:
+                    users_df = st.session_state['users_db']
+                    match = users_df[users_df['username'].str.lower() == clean_username.lower()]
+                    
+                    if not match.empty and clean_password in ["admin123", "123456"]:
+                        user_data = match.iloc[0].to_dict()
+                        if user_data['status'] == "محظور":
+                            st.error("❌ هذا الحساب محظور حالياً.")
+                            st.stop()
+                        user_authenticated = True
+                        user_info = {
                             "name": user_data['full_name'],
                             "username": user_data['username'],
                             "role": user_data['role']
                         }
-                        log_action("تسجيل دخول", f"تم تسجيل دخول المستخدم {user_data['username']}")
-                        st.success("✅ تم تسجيل الدخول بنجاح!")
-                        st.rerun()
+
+                # النتيجة النهائية للتحقق
+                if user_authenticated and user_info:
+                    st.session_state['user'] = user_info
+                    log_action("تسجيل دخول", f"تم تسجيل دخول المستخدم {user_info['username']}")
+                    st.success(f"✅ أهلاً بك {user_info['name']}!")
+                    st.rerun()
                 else:
                     st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة")
+                    
         st.markdown("</div>", unsafe_allow_html=True)
-
 # ==============================================================================
 # 6. MAIN ROUTER
 # ==============================================================================
