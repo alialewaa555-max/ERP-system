@@ -727,3 +727,58 @@ else:
             file_name=f"FULL_SYSTEM_BACKUP_{datetime.date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+def change_credentials_screen():
+    st.markdown("### 🔑 تغيير بيانات الحساب")
+    
+    current_user = st.session_state['user']
+    current_username = current_user['username']
+    
+    with st.form("change_credentials_form"):
+        new_username = st.text_input("اسم المستخدم الجديد", value=current_username)
+        old_password = st.text_input("كلمة المرور الحالية (للتأكيد)", type="password")
+        new_password = st.text_input("كلمة المرور الجديدة", type="password")
+        confirm_password = st.text_input("تأكيد كلمة المرور الجديدة", type="password")
+        
+        submit = st.form_submit_button("حفظ التغييرات 💾")
+        
+        if submit:
+            # 1. التحقق من إدخال البيانات المطلوبة
+            if not old_password or not new_password:
+                st.warning("⚠️ يرجى تعبئة كافة الحقول.")
+            elif new_password != confirm_password:
+                st.error("❌ كلمة المرور الجديدة وتأكيدها غير متطابقين.")
+            elif len(new_password) < 6:
+                st.warning("⚠️ كلمة المرور الجديدة يجب أن تكون 6 أرقام/حروف على الأقل.")
+            else:
+                try:
+                    # 2. التحقق من صحة كلمة المرور الحالية في Supabase
+                    res = supabase.table("users").select("*").eq("username", current_username).execute()
+                    
+                    if res.data:
+                        user_db_data = res.data[0]
+                        db_password = str(user_db_data.get("password") or user_db_data.get("password_hash")).strip()
+                        
+                        if db_password != old_password.strip():
+                            st.error("❌ كلمة المرور الحالية غير صحيحة.")
+                        else:
+                            # 3. تحديث البيانات في Supabase
+                            update_payload = {"password": new_password.strip()}
+                            
+                            # إذا قام بتغيير اسم المستخدم
+                            if new_username.strip() != current_username:
+                                update_payload["username"] = new_username.strip()
+                            
+                            supabase.table("users").update(update_payload).eq("username", current_username).execute()
+                            
+                            # 4. تحديث بيئة الجلسة الحالية
+                            st.session_state['user']['username'] = new_username.strip()
+                            
+                            st.success("✅ تم تحديث بيانات الحساب بنجاح!")
+                            st.rerun()
+                    else:
+                        st.error("❌ لم يتم العثور على الحساب في قاعدة البيانات.")
+                        
+                except Exception as e:
+                    st.error(f"❌ حدث خطأ أثناء التحديث: {e}")
+                    
+                    
