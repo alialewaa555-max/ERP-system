@@ -1,4 +1,94 @@
 # ==============================================================================
+# AUTHENTICATION & ROLE-BASED NAVIGATION SYSTEM
+# ==============================================================================
+
+# 1. مصفوفة الصلاحيات حسب الدور
+ROLE_PERMISSIONS = {
+    "ADMIN": [
+        t['dashboard'], t['expenses'], t['vouchers'], 
+        t['vendors'], t['fleet'], t['movement'], 
+        t['staff'], t['audit'], t['rbac'], t['settings']
+    ],
+    "ACCOUNTANT": [
+        t['dashboard'], t['expenses'], t['vouchers'], 
+        t['vendors'], t['fleet']
+    ],
+    "SUPERVISOR": [
+        t['expenses'], t['movement'], t['staff']
+    ],
+    "DRIVER": [
+        t['movement']
+    ]
+}
+
+# 2. إدارة جلسة تسجيل الدخول
+if 'user' not in st.session_state:
+    st.session_state['user'] = None
+
+def login_screen():
+    """واجهة دخول المستخدمين"""
+    st.markdown("<h2 style='text-align: center;'>🔐 نظام تسجيل الدخول - Suleiman ERP</h2>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("login_form"):
+            username = st.text_input("اسم المستخدم")
+            password = st.text_input("كلمة المرور", type="password")
+            submit = st.form_submit_button("تسجيل الدخول")
+            
+            if submit:
+                # محاكاة التحقق من قاعدة البيانات (Supabase)
+                # في الإنتاج: نتحقق من جدول user_roles عبر API
+                if username == "suleiman" and password == "admin123":
+                    st.session_state['user'] = {
+                        "name": "م. سليمان نبهان",
+                        "username": username,
+                        "role": "ADMIN"
+                    }
+                    st.success("تم تسجيل الدخول بنجاح!")
+                    st.rerun()
+                elif username == "accountant" and password == "123456":
+                    st.session_state['user'] = {
+                        "name": "محاسب الموقع",
+                        "username": username,
+                        "role": "ACCOUNTANT"
+                    }
+                    st.success("تم تسجيل الدخول بنجاح!")
+                    st.rerun()
+                else:
+                    st.error("اسم المستخدم أو كلمة المرور غير صحيحة")
+
+# 3. شرط العرض الرئيسي
+if st.session_state['user'] is None:
+    login_screen()
+else:
+    user_info = st.session_state['user']
+    user_role = user_info['role']
+    
+    # القائمة المتاحة لهذا الدور فقط
+    allowed_menu = ROLE_PERMISSIONS.get(user_role, [])
+    
+    with st.sidebar:
+        st.markdown(f"👤 **المستخدم:** {user_info['name']}")
+        st.markdown(f"🛡️ **الرتبة:** `{user_role}`")
+        if st.button("🚪 تسجيل الخروج"):
+            st.session_state['user'] = None
+            st.rerun()
+            
+        st.markdown("---")
+        selected_lang = st.selectbox("🌐 اللغة", ["AR", "KU", "EN"])
+        st.session_state['lang'] = selected_lang
+        
+        # القائمة المفلترة حسب الصلاحية
+        menu = st.radio("القائمة الرئيسية", allowed_menu)
+
+    # ==============================================================================
+    # هنا يتم استدعاء وحدات النظام بناءً على اختيار المستخدم من القائمة المفلترة
+    # ==============================================================================
+    if menu == t['dashboard']:
+        # عرض لوحة القيادة...
+        pass
+# ==============================================================================
 # Project: Suleiman ERP - Enterprise Fleet & Financial Management
 # Architecture: Multi-tier Object-Oriented System (Part 1 - Core Engine)
 # Author: Engineer Suleiman Nabhan
