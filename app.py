@@ -208,8 +208,8 @@ def log_action(action: str, details: str):
 
 t = TRANSLATIONS[st.session_state['lang']]
 
-# # ==============================================================================
-# 5. LOGIN SCREEN (النظام الآمن والمغلق للإنتاج)
+# ==============================================================================
+# 5. LOGIN SCREEN (مع إظهار تفاصيل الخطأ الفني)
 # ==============================================================================
 def login_screen():
     st.markdown("<h1 style='text-align: center;'>🔐 نظام Suleiman ERP للمقاولات</h1>", unsafe_allow_html=True)
@@ -231,37 +231,36 @@ def login_screen():
                 if not clean_username or not clean_password:
                     st.warning("⚠️ يرجى إدخال اسم المستخدم وكلمة المرور.")
                 elif not supabase:
-                    st.error("❌ تعذر الاتصال بقاعدة البيانات. يرجى مراجعة مسؤول النظام.")
+                    st.error("❌ لم يتم العثور على SUPABASE_URL أو SUPABASE_KEY في إعدادات Secrets.")
                 else:
                     try:
-                        # 1. الاستعلام المباشر والآمن من Supabase
+                        # الاستعلام المباشر من جدول users
                         res = supabase.table("users").select("*").eq("username", clean_username).execute()
                         
                         if res.data:
                             user_data = res.data[0]
                             db_password = str(user_data.get("password") or user_data.get("password_hash")).strip()
                             
-                            # 2. التحقق من كلمة المرور وحالة الحساب
                             if db_password == clean_password:
-                                if user_data.get("status") == "محظور" or user_data.get("is_active") == False:
-                                    st.error("❌ هذا الحساب معطل أو محظور. يرجى مراجعة م. سليمان.")
+                                if user_data.get("status") == "محظور":
+                                    st.error("❌ هذا الحساب محظور.")
                                 else:
-                                    # تسجيل الجلسة بنجاح
                                     st.session_state['user'] = {
                                         "name": user_data.get("full_name", user_data.get("username")),
                                         "username": user_data.get("username"),
-                                        "role": user_data.get("role", "SUPERVISOR")
+                                        "role": user_data.get("role", "ADMIN")
                                     }
                                     log_action("تسجيل دخول", f"تم دخول المستخدم {user_data.get('username')}")
                                     st.success("✅ تم تسجيل الدخول بنجاح!")
                                     st.rerun()
                             else:
-                                st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة")
+                                st.error("❌ كلمة المرور غير صحيحة.")
                         else:
-                            st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة")
+                            st.error(f"❌ لم يتم العثور على اسم المستخدم '{clean_username}' في الجدول.")
                             
                     except Exception as e:
-                        st.error("❌ حدث خطأ أثناء التحقق من البيانات. يرجى المحاولة لاحقاً.")
+                        # طباعة الخطأ الصريح القادم من Supabase
+                        st.error(f"❌ خطأ من Supabase: {e}")
                         
         st.markdown("</div>", unsafe_allow_html=True)
 # ==============================================================================
