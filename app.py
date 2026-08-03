@@ -208,77 +208,61 @@ def log_action(action: str, details: str):
 
 t = TRANSLATIONS[st.session_state['lang']]
 
-# ==============================================================================
-# 5. LOGIN SCREEN (معالج الاتصال الذكي بـ Supabase)
+# # ==============================================================================
+# 5. LOGIN SCREEN (النظام الآمن والمغلق للإنتاج)
 # ==============================================================================
 def login_screen():
     st.markdown("<h1 style='text-align: center;'>🔐 نظام Suleiman ERP للمقاولات</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #bdc3c7;'>إدارة الأسطول، المصاريف التشغيلية، والرصد المالي اللحظي</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #bdc3c7;'>تسجيل الدخول الآمن للكوادر المصرح لها فقط</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         
-        # زر دخول مباشر سريع لتجاوز العطل ومتابعة عملك فوراً
-        if st.button("🚀 دخول مباشر كمدير نظام (تجاوز الدخول)", type="primary"):
-            st.session_state['user'] = {
-                "name": "م. سليمان نبهان",
-                "username": "suleiman",
-                "role": "ADMIN"
-            }
-            log_action("دخول مباشر", "تم الدخول عبر زر التجاوز")
-            st.rerun()
-            
-        st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-
         with st.form("login_form"):
             username_input = st.text_input("اسم المستخدم (Username)")
             password_input = st.text_input("كلمة المرور (Password)", type="password")
-            submit = st.form_submit_button("تسجيل الدخول العادي 🔑")
+            submit = st.form_submit_button("تسجيل الدخول 🔑")
             
             if submit:
                 clean_username = username_input.strip()
                 clean_password = password_input.strip()
                 
-                user_authenticated = False
-                user_info = None
-
-                if supabase:
-                    # 1. البحث في جدول users أو user_roles
-                    for table_name in ["users", "user_roles"]:
-                        try:
-                            res = supabase.table(table_name).select("*").eq("username", clean_username).execute()
-                            if res.data:
-                                row = res.data[0]
-                                # تجربة كافة المسميات المحتملة لعمود كلمة المرور
-                                db_pass = row.get("password") or row.get("password_hash") or row.get("pass")
-                                
-                                if str(db_pass).strip() == clean_password:
-                                    user_authenticated = True
-                                    user_info = {
-                                        "name": row.get("full_name", row.get("username", "م. سليمان")),
-                                        "username": row.get("username"),
-                                        "role": row.get("role", "ADMIN")
-                                    }
-                                    break
-                        except Exception as e:
-                            st.caption(f"تنبيه الفحص ({table_name}): {e}")
-
-                # 2. الخيار الاحتياطي المحلي في حال فشل الاستعلام
-                if not user_authenticated:
-                    if clean_username.lower() == "suleiman" and clean_password == "admin123":
-                        user_authenticated = True
-                        user_info = {"name": "م. سليمان نبهان", "username": "suleiman", "role": "ADMIN"}
-
-                # النتيجة
-                if user_authenticated and user_info:
-                    st.session_state['user'] = user_info
-                    log_action("تسجيل دخول", f"تم دخول {user_info['username']}")
-                    st.success("✅ تم تسجيل الدخول بنجاح!")
-                    st.rerun()
+                if not clean_username or not clean_password:
+                    st.warning("⚠️ يرجى إدخال اسم المستخدم وكلمة المرور.")
+                elif not supabase:
+                    st.error("❌ تعذر الاتصال بقاعدة البيانات. يرجى مراجعة مسؤول النظام.")
                 else:
-                    st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة (تأكد من اسم الجدول/العمود في Supabase)")
-                    
+                    try:
+                        # 1. الاستعلام المباشر والآمن من Supabase
+                        res = supabase.table("users").select("*").eq("username", clean_username).execute()
+                        
+                        if res.data:
+                            user_data = res.data[0]
+                            db_password = str(user_data.get("password") or user_data.get("password_hash")).strip()
+                            
+                            # 2. التحقق من كلمة المرور وحالة الحساب
+                            if db_password == clean_password:
+                                if user_data.get("status") == "محظور" or user_data.get("is_active") == False:
+                                    st.error("❌ هذا الحساب معطل أو محظور. يرجى مراجعة م. سليمان.")
+                                else:
+                                    # تسجيل الجلسة بنجاح
+                                    st.session_state['user'] = {
+                                        "name": user_data.get("full_name", user_data.get("username")),
+                                        "username": user_data.get("username"),
+                                        "role": user_data.get("role", "SUPERVISOR")
+                                    }
+                                    log_action("تسجيل دخول", f"تم دخول المستخدم {user_data.get('username')}")
+                                    st.success("✅ تم تسجيل الدخول بنجاح!")
+                                    st.rerun()
+                            else:
+                                st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة")
+                        else:
+                            st.error("❌ اسم المستخدم أو كلمة المرور غير صحيحة")
+                            
+                    except Exception as e:
+                        st.error("❌ حدث خطأ أثناء التحقق من البيانات. يرجى المحاولة لاحقاً.")
+                        
         st.markdown("</div>", unsafe_allow_html=True)
 # ==============================================================================
 # 6. MAIN ROUTER
