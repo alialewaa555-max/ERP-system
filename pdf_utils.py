@@ -3,16 +3,6 @@
 # File: pdf_utils.py
 # Purpose: توليد ملفات PDF احترافية (سندات، تقارير آليات، موظفين، سجل تدقيق...)
 # بدعم كامل للغة العربية (RTL) عبر arabic_reshaper + python-bidi + fpdf2.
-#
-# ⚠️ ملاحظة نشر مهمة (Streamlit Cloud + Supabase):
-# نظام الملفات على Streamlit Cloud "مؤقت/Ephemeral" ولا يُحفظ بين عمليات
-# إعادة التشغيل، لذلك:
-#   1) خط العربي (Amiri-Regular.ttf) يجب أن يكون داخل مستودع GitHub نفسه
-#      ضمن مجلد fonts/ حتى يُنشر معه تلقائياً (لا يُحمَّل وقت التشغيل).
-#   2) الشعار وصورة الختم لا تُحفظان محلياً، بل تُرفعان إلى Supabase
-#      Storage (bucket: branding) ويُخزَّن رابطهما العام فقط في جدول settings.
-#   3) ملفات PDF المولّدة تُبنى في الذاكرة (BytesIO) وتُقدَّم للمستخدم مباشرة
-#      عبر st.download_button دون كتابتها على القرص.
 # ==============================================================================
 
 import io
@@ -70,8 +60,12 @@ class BrandedPDF(FPDF):
         self.settings = settings or {}
         self.doc_title = title
         self._has_arabic_font = False
-        self.add_page()
+        
+        # 1. تسجيل الخطوط أولاً قبل إنشاء أي صفحة لضمان عمل الحروف العربية
         self._register_fonts()
+        
+        # 2. إنشاء الصفحة ورسم الترويسة بعد تفعيل الخط
+        self.add_page()
         self._draw_header()
 
     def _register_fonts(self):
