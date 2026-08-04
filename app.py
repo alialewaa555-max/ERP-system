@@ -586,25 +586,28 @@ def module_users_permissions():
         
         if st.form_submit_button("حفظ المستخدم وصلاحياته 💾"):
             if u_username.strip() and u_pass.strip():
+                # إرسال البيانات كقاموس مباشر (Python Dict) متوافق مع نوع jsonb
                 custom_perm = {
                     "purchases": {"allowed": True, "upload_invoice": p_cam},
                     "auditing": {"allowed": True, "audit_data": p_audit, "manager_approval": p_mgr},
                     "fleet": {"allowed": p_fleet}
                 }
                 if supabase:
-                    supabase.table("users").insert({
-                        "username": u_username.strip(),
-                        "password": u_pass.strip(),
-                        "full_name": u_fullname.strip(),
-                        "role": "USER",
-                        "custom_permissions": json.dumps(custom_perm)
-                    }).execute()
-                log_audit("إضافة مستخدم", f"تم إنشاء مستخدم جديد: {u_username}")
-                st.success("✅ تم حفظ المستخدم وصلاحياته المخصصة بنجاح!")
-                st.rerun()
+                    try:
+                        supabase.table("users").insert({
+                            "username": u_username.strip(),
+                            "password": u_pass.strip(),
+                            "full_name": u_fullname.strip(),
+                            "role": "USER",
+                            "custom_permissions": custom_perm
+                        }).execute()
+                        log_audit("إضافة مستخدم", f"تم إنشاء مستخدم جديد: {u_username}")
+                        st.success("✅ تم حفظ المستخدم وصلاحياته المخصصة بنجاح!")
+                        st.rerun()
+                    except Exception as err:
+                        st.error(f"❌ خطأ أثناء الحفظ في قاعدة البيانات: {err}")
             else:
                 st.warning("⚠️ يرجى إدخال اسم المستخدم وكلمة المرور.")
-
 # --- ح. وحدة إعدادات النظام، الثيم، السجل الأمني، وتصفير البيانات ---
 def module_settings():
     st.markdown("<div class='main-card'><h3>⚙️ إعدادات النظام، السجل الأمني، وإدارة البيانات</h3></div>", unsafe_allow_html=True)
