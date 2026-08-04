@@ -17,7 +17,6 @@ try:
     import extra_streamlit_components as stx
 
 def _get_cookie_manager():
-    # استخدام session_state بدلاً من التخزين المؤقت المباشر
     if "cookie_manager" not in st.session_state:
         import extra_streamlit_components as stx
         st.session_state.cookie_manager = stx.CookieManager(key="suleiman_erp_cookie_manager")
