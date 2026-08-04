@@ -47,17 +47,28 @@ def new_id(prefix=""):
 # تخزين الصور (Supabase Storage)
 # البكتات المطلوبة: invoices (صور الفواتير), branding (شعار/ختم الشركة)
 # ------------------------------------------------------------------------------
-def upload_image(bucket: str, file_bytes: bytes, filename: str, content_type: str = "image/jpeg"):
-    """رفع صورة إلى Supabase Storage وإرجاع الرابط العام."""
+def upload_image(bucket_name_legacy: str, file_bytes: bytes, filename: str, content_type: str = "image/jpeg", subfolder: str = ""):
+    """
+    تعديل ليتناسب مع الباكت الواحد المجاني:
+    يتم تجاهل اسم الباكت القديم واستخدام باكت 'company_data'
+    مع تحويل الأسماء القديمة إلى مجلدات فرعية داخله لتنظيم الملفات.
+    """
+    SINGLE_BUCKET = "company_data"
     client = get_client()
     if not client:
         return None
     try:
-        path = f"{datetime.date.today()}/{new_id()}_{filename}"
-        client.storage.from_(bucket).upload(
+        # دمج الاسم القديم مع المجلد الفرعي لتنظيم الملفات
+        folder_path = bucket_name_legacy
+        if subfolder:
+            folder_path = f"{folder_path}/{subfolder}"
+            
+        path = f"{folder_path}/{datetime.date.today()}/{new_id()}_{filename}"
+        
+        client.storage.from_(SINGLE_BUCKET).upload(
             path, file_bytes, {"content-type": content_type}
         )
-        return client.storage.from_(bucket).get_public_url(path)
+        return client.storage.from_(SINGLE_BUCKET).get_public_url(path)
     except Exception as e:
         st.warning(f"⚠️ تعذر رفع الصورة إلى التخزين السحابي: {e}")
         return None
