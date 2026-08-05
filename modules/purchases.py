@@ -13,7 +13,7 @@ import excel_utils
 from camera_utils import capture_or_upload
 from ui_helpers import smart_search_filter, confirm_action, image_viewer
 from permissions import can, require
-from config import VOUCHER_STATUS_NEW
+from config import VOUCHER_STATUS_NEW, STORAGE_BUCKET
 
 
 def _machine_picker(fleet_df: pd.DataFrame, key: str):
@@ -78,7 +78,7 @@ def render():
             else:
                 image_url = None
                 if photo_bytes:
-                    image_url = db.upload_image("invoices", photo_bytes, filename or "invoice.jpg", content_type or "image/jpeg")
+                    image_url = db.upload_image(STORAGE_BUCKET, photo_bytes, filename or "invoice.jpg", content_type or "image/jpeg", subfolder="invoices")
 
                 voucher_no = db.new_id("V-")
                 ok, vid = db.insert_voucher({

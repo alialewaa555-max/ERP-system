@@ -12,7 +12,7 @@ import excel_utils
 from auth import hash_password, verify_password
 from ui_helpers import confirm_action
 from permissions import can, require
-from config import THEMES, OWNER_ROLE_NAME
+from config import THEMES, OWNER_ROLE_NAME, STORAGE_BUCKET
 
 
 def render():
@@ -43,11 +43,11 @@ def render():
             if st.button("💾 حفظ الهوية البصرية", type="primary"):
                 fields = {"company_name": company_name, "manager_name": manager_name}
                 if logo_file:
-                    url = db.upload_image("branding", logo_file.getvalue(), "logo.png", logo_file.type)
+                    url = db.upload_image(STORAGE_BUCKET, logo_file.getvalue(), "logo.png", logo_file.type, subfolder="branding")
                     if url:
                         fields["logo_url"] = url
                 if stamp_file:
-                    url = db.upload_image("branding", stamp_file.getvalue(), "stamp.png", stamp_file.type)
+                    url = db.upload_image(STORAGE_BUCKET, stamp_file.getvalue(), "stamp.png", stamp_file.type, subfolder="branding")
                     if url:
                         fields["stamp_url"] = url
                 db.upsert_settings(fields)

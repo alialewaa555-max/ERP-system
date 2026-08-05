@@ -11,6 +11,7 @@ import db
 from camera_utils import capture_or_upload
 from ui_helpers import smart_search_filter, confirm_action
 from permissions import can, require
+from config import STORAGE_BUCKET
 
 
 def render():
@@ -56,7 +57,7 @@ def render():
         else:
             image_url = None
             if photo_bytes:
-                image_url = db.upload_image("odometers", photo_bytes, filename or "odometer.jpg", content_type or "image/jpeg")
+                image_url = db.upload_image(STORAGE_BUCKET, photo_bytes, filename or "odometer.jpg", content_type or "image/jpeg", subfolder="odometers")
             db.update_machine(machine_code, {"odometer": odometer_value, "odometer_image_url": image_url, "odometer_updated_at": db.now_str()})
             db.log_action("تحديث عداد", f"تحديث عداد الآلية {machine_code} إلى {odometer_value}")
             st.success("✅ تم رفع قراءة العداد بنجاح.")
