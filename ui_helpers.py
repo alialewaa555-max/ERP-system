@@ -149,7 +149,35 @@ def split_screen_compare(left_render, right_render, left_title: str, right_title
         right_render()
 
 
-def confirm_action(action_label: str, key: str, danger: bool = False, require_password: str = None) -> bool:
+def safe_pdf_export_button(label: str, generate_fn, file_name: str, key: str):
+    """
+    زر تصدير PDF آمن: يولّد الملف فقط عند الضغط (وليس بكل مرة تُعرض
+    الصفحة)، ويعرض رسالة خطأ واضحة إن كان خط اللغة العربية غير مرفوع
+    بدل انهيار الصفحة بالكامل.
+    generate_fn: دالة بلا معاملات تُرجع bytes الملف عند استدعائها.
+    """
+    import pdf_utils
+    if st.button(f"📄 {label}", key=f"{key}_gen"):
+        try:
+            pdf_bytes = generate_fn()
+            st.session_state[f"{key}_bytes"] = pdf_bytes
+        except pdf_utils.ArabicFontMissingError as e:
+            st.error(str(e))
+            st.info(
+                "حمّل خط Amiri من: "
+                "https://github.com/google/fonts/raw/refs/heads/main/ofl/amiri/Amiri-Regular.ttf "
+                "وارفعه لمجلد fonts/ بمستودعك."
+            )
+            st.session_state.pop(f"{key}_bytes", None)
+        except Exception as e:
+            st.error(f"❌ فشل توليد الملف: {type(e).__name__}: {e}")
+            st.session_state.pop(f"{key}_bytes", None)
+
+    if st.session_state.get(f"{key}_bytes"):
+        st.download_button(
+            "⬇️ تحميل الملف الجاهز", st.session_state[f"{key}_bytes"],
+            file_name=file_name, key=f"{key}_dl",
+        )
     """
     نافذة تأكيد موحّدة لأي إجراء (حذف/تعديل/تصدير شامل...).
     ترجع True فقط عند نقر المستخدم على تأكيد فعلياً.

@@ -17,7 +17,7 @@ from config import TRANSLATIONS, LANGUAGES, THEMES, DEFAULT_SETTINGS
 from permissions import visible_menu_keys, can_access_module
 
 from modules import (
-    dashboard, purchases, vouchers, vendors, fleet,
+    dashboard, purchases, vouchers, vendors, fleet, expenses,
     movement, staff, audit, users_rbac, settings as settings_module, tracking,
 )
 
@@ -58,6 +58,8 @@ def apply_theme():
         }}
         section[data-testid="stSidebar"] {{
             background-color: {theme['sidebar_bg']};
+            min-width: 230px !important;
+            max-width: 340px !important;
         }}
         h1, h2, h3 {{
             color: {theme['heading']};
@@ -92,10 +94,11 @@ def render_login():
         f"<h1 style='text-align:center'>🚜 {settings.get('company_name', 'Suleiman ERP')}</h1>",
         unsafe_allow_html=True,
     )
-    st.markdown(
-        f"<p style='text-align:center;opacity:.7'>نظام إدارة الأسطول والمالية — بإدارة {settings.get('manager_name','')}</p>",
-        unsafe_allow_html=True,
-    )
+    if settings.get("manager_name"):
+        st.markdown(
+            f"<p style='text-align:center;opacity:.7'>نظام إدارة الأسطول والمالية — بإدارة {settings.get('manager_name')}</p>",
+            unsafe_allow_html=True,
+        )
 
     _, mid, _ = st.columns([1, 1.2, 1])
     with mid:
@@ -130,6 +133,7 @@ MODULE_RENDERERS = {
     "vouchers": vouchers.render,
     "vendors": vendors.render,
     "fleet": fleet.render,
+    "expenses": expenses.render,
     "movement": movement.render,
     "staff": staff.render,
     "audit": audit.render,

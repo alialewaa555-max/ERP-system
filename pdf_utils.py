@@ -1,22 +1,18 @@
 # ==============================================================================
 # Project: Suleiman ERP
 # File: pdf_utils.py
-# Purpose: توليد ملفات PDF احترافية (سندات، تقارير آليات، موظفين، سجل تدقيق...)
-# بدعم كامل للغة العربية (RTL) عبر arabic_reshaper + python-bidi + fpdf2.
+# Purpose: توليد ملفات PDF احترافية بترويسة موحدة لكل تبويبات النظام:
+# شعار الشركة أعلى اليسار، اسم الشركة أعلى اليمين، عنوان التصدير بالنص
+# العلوي، والتاريخ تحت العنوان. بدعم كامل للعربية (RTL).
 #
-# ⚠️ ملاحظة نشر مهمة (Streamlit Cloud + Supabase):
-# نظام الملفات على Streamlit Cloud "مؤقت/Ephemeral" ولا يُحفظ بين عمليات
-# إعادة التشغيل، لذلك:
-#   1) خط العربي (Amiri-Regular.ttf) يجب أن يكون داخل مستودع GitHub نفسه
-#      ضمن مجلد fonts/ حتى يُنشر معه تلقائياً (لا يُحمَّل وقت التشغيل).
-#   2) الشعار وصورة الختم لا تُحفظان محلياً، بل تُرفعان إلى Supabase
-#      Storage (bucket: branding) ويُخزَّن رابطهما العام فقط في جدول settings.
-#   3) ملفات PDF المولّدة تُبنى في الذاكرة (BytesIO) وتُقدَّم للمستخدم مباشرة
-#      عبر st.download_button دون كتابتها على القرص.
+# ⚠️ الخط العربي (Amiri-Regular.ttf / Amiri-Bold.ttf) يجب أن يكون داخل
+# مجلد fonts/ بمستودع GitHub. بدونه، الدوال هنا ترفع ArabicFontMissingError
+# بدل ما تُسقط كامل الصفحة - الموديولات تتعامل مع هذا الاستثناء بلطف.
 # ==============================================================================
 
 import io
 import os
+import datetime
 import requests
 import streamlit as st
 from fpdf import FPDF
@@ -31,6 +27,11 @@ except ImportError:
 FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 FONT_REGULAR = os.path.join(FONT_DIR, "Amiri-Regular.ttf")
 FONT_BOLD = os.path.join(FONT_DIR, "Amiri-Bold.ttf")
+
+
+class ArabicFontMissingError(Exception):
+    """يُستثنى عند غياب ملفات خط Amiri من مجلد fonts/."""
+    pass
 
 
 def ar(text):
@@ -63,7 +64,8 @@ def _fetch_image_bytes(url_or_bytes):
 
 
 class BrandedPDF(FPDF):
-    """قالب PDF أساسي بترويسة موحّدة: الشعار واسم الشركة يمين، العنوان يسار."""
+    """قالب PDF موحد: شعار أعلى اليسار / اسم شركة أعلى اليمين / عنوان
+    وتاريخ بالمنتصف العلوي."""
 
     def __init__(self, settings: dict, title: str):
         super().__init__()
@@ -71,54 +73,63 @@ class BrandedPDF(FPDF):
         self.doc_title = title
         self._has_arabic_font = False
 
-        # 1) نسجّل الخط العربي أولاً قبل إنشاء أي صفحة، حتى تُستخدم فوراً
-        self._register_fonts()
+        # نتحقق من توفر الخط العربي قبل أي شيء - وإلا نوقف بوضوح
+        if not os.path.exists(FONT_REGULAR):
+            raise ArabicFontMissingError(
+                "⚠️ ملف الخط العربي (Amiri-Regular.ttf) غير موجود في مجلد fonts/ "
+                "بمستودعك على GitHub. حمّله وارفعه ثم أعد المحاولة."
+            )
 
-        # 2) بعدين ننشئ الصفحة ونرسم الترويسة بالخط الصحيح مباشرة
+        self._register_fonts()
         self.add_page()
         self._draw_header()
 
     def _register_fonts(self):
         try:
-            if os.path.exists(FONT_REGULAR):
-                self.add_font("Amiri", "", FONT_REGULAR, uni=True)
-                bold_path = FONT_BOLD if os.path.exists(FONT_BOLD) else FONT_REGULAR
-                self.add_font("Amiri", "B", bold_path, uni=True)
-                self._has_arabic_font = True
-        except Exception:
-            self._has_arabic_font = False
+            self.add_font("Amiri", "", FONT_REGULAR, uni=True)
+            bold_path = FONT_BOLD if os.path.exists(FONT_BOLD) else FONT_REGULAR
+            self.add_font("Amiri", "B", bold_path, uni=True)
+            self._has_arabic_font = True
+        except Exception as e:
+            raise ArabicFontMissingError(f"⚠️ تعذر تحميل الخط العربي: {e}")
 
     def font(self, size=12, bold=False):
-        if self._has_arabic_font:
-            self.set_font("Amiri", "B" if bold else "", size)
-        else:
-            self.set_font("Helvetica", "B" if bold else "", size)
+        self.set_font("Amiri", "B" if bold else "", size)
 
     def _draw_header(self):
-        company_name = self.settings.get("company_name", "الشركة")
+        company_name = self.settings.get("company_name") or "الشركة"
         logo_url = self.settings.get("logo_url")
+        today = datetime.date.today().strftime("%Y-%m-%d")
 
-        # الشعار واسم الشركة على اليمين
+        # 1) الشعار أعلى اليسار (الجهة الفيزيائية اليسرى من الصفحة)
         if logo_url:
             img = _fetch_image_bytes(logo_url)
             if img:
                 try:
-                    self.image(img, x=170, y=8, w=25)
+                    self.image(img, x=12, y=8, w=28)
                 except Exception:
                     pass
 
-        self.set_xy(10, 10)
-        self.font(16, bold=True)
-        self.cell(150, 10, ar(company_name), align="R")
+        # 2) اسم الشركة أعلى اليمين (الجهة الفيزيائية اليمنى من الصفحة)
+        self.set_xy(130, 10)
+        self.font(15, bold=True)
+        self.cell(68, 8, ar(company_name), align="R")
 
-        # عنوان المستند على اليسار
-        self.set_xy(10, 22)
-        self.font(12)
-        self.cell(150, 8, ar(self.doc_title), align="R")
+        # 3) عنوان التصدير بالمنتصف العلوي
+        self.set_xy(55, 20)
+        self.font(13, bold=True)
+        self.cell(100, 8, ar(self.doc_title), align="C")
+
+        # 4) التاريخ تحت العنوان بالمنتصف
+        self.set_xy(55, 29)
+        self.font(9)
+        self.set_text_color(90, 90, 90)
+        self.cell(100, 6, ar("التاريخ: ") + today, align="C")
+        self.set_text_color(0, 0, 0)
 
         self.set_draw_color(200, 160, 40)
-        self.line(10, 33, 200, 33)
-        self.set_xy(10, 38)
+        self.line(10, 40, 200, 40)
+        self.set_xy(10, 45)
 
     def add_stamp(self):
         stamp_url = self.settings.get("stamp_url")
@@ -145,17 +156,18 @@ class BrandedPDF(FPDF):
         self.set_y(-15)
         self.font(8)
         self.set_text_color(120, 120, 120)
-        self.cell(0, 10, ar(f"صفحة {self.page_no()} - نظام سليمان ERP"), align="C")
+        company_name = self.settings.get("company_name") or "النظام"
+        self.cell(0, 10, ar(f"صفحة {self.page_no()} - {company_name}"), align="C")
 
 
 def voucher_pdf(settings: dict, voucher: dict) -> bytes:
     """توليد PDF لسند مالي معتمد (فاتورة) مع الختم وإقرار الاستلام."""
     pdf = BrandedPDF(settings, f"سند مالي رقم {voucher.get('voucher_no', '')}")
     pdf.kv_row("رقم السند", voucher.get("voucher_no", ""))
-    pdf.kv_row("التاريخ", voucher.get("created_at", "")[:10])
+    pdf.kv_row("التاريخ", str(voucher.get("created_at", ""))[:10])
     pdf.kv_row("اسم المحل / المورد", voucher.get("vendor", ""))
     pdf.kv_row("الآلية المرتبطة", voucher.get("machine_code", ""))
-    pdf.kv_row("المبلغ", f"{voucher.get('amount', 0):,.0f}")
+    pdf.kv_row("المبلغ", f"{voucher.get('amount', 0) or 0:,.0f}")
     pdf.kv_row("الحالة", voucher.get("status", ""))
     pdf.kv_row("أدخله موظف المشتريات", voucher.get("entered_by", ""))
     pdf.kv_row("دقّقه", voucher.get("reviewed_by", "") or "-")

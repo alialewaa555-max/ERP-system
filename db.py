@@ -47,30 +47,24 @@ def new_id(prefix=""):
 # تخزين الصور (Supabase Storage)
 # البكتات المطلوبة: invoices (صور الفواتير), branding (شعار/ختم الشركة)
 # ------------------------------------------------------------------------------
-def upload_image(bucket_name_legacy: str, file_bytes: bytes, filename: str, content_type: str = "image/jpeg", subfolder: str = ""):
-    """
-    تعديل ليتناسب مع الباكت الواحد المجاني:
-    يتم تجاهل اسم الباكت القديم واستخدام باكت 'company_data'
-    مع تحويل الأسماء القديمة إلى مجلدات فرعية داخله لتنظيم الملفات.
-    """
-    SINGLE_BUCKET = "company_data"
+def upload_image(bucket: str, file_bytes: bytes, filename: str, content_type: str = "image/jpeg", subfolder: str = ""):
+    """رفع صورة إلى Supabase Storage وإرجاع الرابط العام.
+    subfolder: مجلد فرعي اختياري داخل نفس الـ bucket (مثلاً 'odometers')
+    يُستخدم لتوفير عدد الـ buckets المحدود على الخطط المجانية بدل إنشاء
+    bucket منفصل لكل نوع صور."""
     client = get_client()
     if not client:
+        st.error("❌ لا يوجد اتصال بقاعدة البيانات (تحقق من SUPABASE_URL/SUPABASE_KEY).")
         return None
     try:
-        # دمج الاسم القديم مع المجلد الفرعي لتنظيم الملفات
-        folder_path = bucket_name_legacy
-        if subfolder:
-            folder_path = f"{folder_path}/{subfolder}"
-            
-        path = f"{folder_path}/{datetime.date.today()}/{new_id()}_{filename}"
-        
-        client.storage.from_(SINGLE_BUCKET).upload(
+        prefix = f"{subfolder}/" if subfolder else ""
+        path = f"{prefix}{datetime.date.today()}/{new_id()}_{filename}"
+        client.storage.from_(bucket).upload(
             path, file_bytes, {"content-type": content_type}
         )
-        return client.storage.from_(SINGLE_BUCKET).get_public_url(path)
+        return client.storage.from_(bucket).get_public_url(path)
     except Exception as e:
-        st.warning(f"⚠️ تعذر رفع الصورة إلى التخزين السحابي: {e}")
+        st.error(f"❌ فشل رفع الصورة إلى باكت '{bucket}': {type(e).__name__}: {e}")
         return None
 
 
@@ -402,10 +396,61 @@ def fetch_settings():
 def upsert_settings(fields: dict):
     client = get_client()
     if not client:
+        st.error("❌ لا يوجد اتصال بقاعدة البيانات (تحقق من SUPABASE_URL/SUPABASE_KEY).")
         return False
     try:
         fields["id"] = 1
         client.table("settings").upsert(fields).execute()
+        return True
+    except Exception as e:
+        st.error(f"❌ فشل حفظ الإعدادات: {type(e).__name__}: {e}")
+        return False
+
+
+# ------------------------------------------------------------------------------
+# جدول النفقات العامة (expenses)
+# ------------------------------------------------------------------------------
+def fetch_expenses():
+    client = get_client()
+    if not client:
+        return []
+    try:
+        res = client.table("expenses").select("*").order("expense_date", desc=True).execute()
+        return res.data or []
+    except Exception:
+        return []
+
+
+def insert_expense(record: dict):
+    client = get_client()
+    if not client:
+        return False
+    try:
+        record.setdefault("id", new_id("EXP-"))
+        record.setdefault("created_at", now_str())
+        client.table("expenses").insert(record).execute()
+        return True
+    except Exception:
+        return False
+
+
+def update_expense(expense_id: str, fields: dict):
+    client = get_client()
+    if not client:
+        return False
+    try:
+        client.table("expenses").update(fields).eq("id", expense_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+def delete_expense(expense_id: str):
+    client = get_client()
+    if not client:
+        return False
+    try:
+        client.table("expenses").delete().eq("id", expense_id).execute()
         return True
     except Exception:
         return False

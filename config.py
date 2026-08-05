@@ -18,6 +18,7 @@ TRANSLATIONS = {
         "vouchers": "🔐 الاعتماد المزدوج للسندات",
         "vendors": "🏪 مستحقات المحلات",
         "fleet": "🚜 إدارة كلف الآليات",
+        "expenses": "🧾 سجل النفقات العامة",
         "movement": "⛽ الحركة والعدادات",
         "staff": "👷 إدارة الموظفين والورشات",
         "audit": "📜 سجل التدقيق الأمني",
@@ -53,6 +54,7 @@ TRANSLATIONS = {
         "vouchers": "🔐 پەسەندکردنی دووانی سەند",
         "vendors": "🏪 شایستەی دوکانەکان",
         "fleet": "🚜 بەڕێوەبردنی ئامێرەکان",
+        "expenses": "🧾 تۆماری خەرجی گشتی",
         "movement": "⛽ جووڵە و مەتەر",
         "staff": "👷 بەڕێوەبردنی کارمەندەکان",
         "audit": "📜 تۆماری پشکنینی ئاسایش",
@@ -88,6 +90,7 @@ TRANSLATIONS = {
         "vouchers": "🔐 Dual Verification",
         "vendors": "🏪 Vendors Ledger",
         "fleet": "🚜 Fleet Cost Management",
+        "expenses": "🧾 General Expenses",
         "movement": "⛽ Odometer & Movement",
         "staff": "👷 Staff & Crew Management",
         "audit": "📜 Security Audit Log",
@@ -194,6 +197,16 @@ PERMISSION_TREE = {
             "export": "تصدير PDF/Excel",
         },
     },
+    "expenses": {
+        "label": "سجل النفقات العامة",
+        "children": {
+            "access": "الدخول إلى سجل النفقات",
+            "add": "إضافة نفقة جديدة",
+            "edit": "تعديل نفقة",
+            "delete": "حذف نفقة",
+            "export": "تصدير PDF/Excel",
+        },
+    },
     "movement": {
         "label": "الحركة والعدادات",
         "children": {
@@ -296,8 +309,8 @@ THEMES = {
 }
 
 DEFAULT_SETTINGS = {
-    "company_name": "شركة سليمان للمقاولات",
-    "manager_name": "م. سليمان نبهان",
+    "company_name": "اسم شركتك",
+    "manager_name": "",
     "logo_url": None,
     "stamp_url": None,
     "theme": "ليلي",
