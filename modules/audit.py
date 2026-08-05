@@ -8,7 +8,7 @@ import streamlit as st
 import db
 import pdf_utils
 import excel_utils
-from ui_helpers import smart_search_filter, confirm_action
+from ui_helpers import smart_search_filter, confirm_action, safe_pdf_export_button
 from permissions import can, require
 
 
@@ -44,11 +44,15 @@ def render():
     if can("audit", "export"):
         target_df = filtered[filtered["id"].isin(selected_ids)] if selected_ids else filtered
         c2.download_button("📊 تصدير Excel (المحدد أو الكل)", excel_utils.df_to_excel_bytes(target_df, "سجل التدقيق"), file_name="audit_log.xlsx")
-        pdf_bytes = pdf_utils.generic_table_pdf(
-            settings, "سجل التدقيق الأمني", target_df.to_dict("records"),
-            ["timestamp", "username", "full_name", "action", "details"],
-        )
-        c3.download_button("📄 تصدير PDF (المحدد أو الكل)", pdf_bytes, file_name="audit_log.pdf")
+        with c3:
+            safe_pdf_export_button(
+                "تصدير PDF (المحدد أو الكل)",
+                lambda: pdf_utils.generic_table_pdf(
+                    settings, "سجل التدقيق الأمني", target_df.to_dict("records"),
+                    ["timestamp", "username", "full_name", "action", "details"],
+                ),
+                "audit_log.pdf", key="audit_pdf",
+            )
 
     if can("audit", "delete") and selected_ids:
         if confirm_action(f"حذف {len(selected_ids)} سجل محدد من سجل التدقيق", key="audit_bulk_delete", danger=True):

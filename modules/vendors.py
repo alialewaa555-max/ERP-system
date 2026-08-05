@@ -8,7 +8,7 @@ import streamlit as st
 import db
 import pdf_utils
 import excel_utils
-from ui_helpers import smart_search_filter, confirm_action, image_viewer
+from ui_helpers import smart_search_filter, confirm_action, image_viewer, safe_pdf_export_button
 from permissions import can, require
 from config import VOUCHER_STATUS_APPROVED
 
@@ -61,13 +61,19 @@ def render():
             st.write(f"ملاحظات: {v.get('notes','') or '-'}")
             image_viewer(v.get("image_url"), key_prefix=f"vendor_img_{v['voucher_no']}", caption="الصورة الأصلية")
             if can("vendors", "export"):
-                pdf_bytes = pdf_utils.voucher_pdf(settings, v)
-                st.download_button("📄 تصدير هذا السند PDF", pdf_bytes, file_name=f"{v['voucher_no']}.pdf", key=f"vpdf_{v['voucher_no']}")
+                safe_pdf_export_button(
+                    f"تصدير سند {v['voucher_no']} PDF",
+                    lambda v=v: pdf_utils.voucher_pdf(settings, v),
+                    f"{v['voucher_no']}.pdf", key=f"vpdf_{v['voucher_no']}",
+                )
 
     if can("vendors", "export"):
         st.markdown("---")
-        full_pdf = pdf_utils.vendor_statement_pdf(settings, vendor_name, vendor_vouchers)
-        st.download_button("📄 تصدير كشف حساب كامل للمحل PDF", full_pdf, file_name=f"{vendor_name}_statement.pdf")
+        safe_pdf_export_button(
+            f"تصدير كشف حساب كامل ({vendor_name})",
+            lambda: pdf_utils.vendor_statement_pdf(settings, vendor_name, vendor_vouchers),
+            f"{vendor_name}_statement.pdf", key="vendor_statement_pdf",
+        )
 
     if can("vendors", "delete"):
         st.markdown("---")

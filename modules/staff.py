@@ -8,7 +8,7 @@ import streamlit as st
 import db
 import pdf_utils
 import excel_utils
-from ui_helpers import smart_search_filter, confirm_action
+from ui_helpers import smart_search_filter, confirm_action, safe_pdf_export_button
 from permissions import can, require
 
 
@@ -52,11 +52,15 @@ def render():
         if can("staff", "export"):
             c1, c2 = st.columns(2)
             c1.download_button("📊 تصدير Excel", excel_utils.df_to_excel_bytes(filtered, "الموظفين"), file_name="staff.xlsx")
-            pdf_bytes = pdf_utils.generic_table_pdf(
-                settings, "تقرير الموظفين", filtered.to_dict("records"),
-                ["emp_id", "name", "job", "salary", "status"],
-            )
-            c2.download_button("📄 تصدير PDF", pdf_bytes, file_name="staff.pdf")
+            with c2:
+                safe_pdf_export_button(
+                    "تصدير PDF",
+                    lambda: pdf_utils.generic_table_pdf(
+                        settings, "تقرير الموظفين", filtered.to_dict("records"),
+                        ["emp_id", "name", "job", "salary", "status"],
+                    ),
+                    "staff.pdf", key="staff_pdf",
+                )
 
         if filtered.empty:
             return
@@ -75,7 +79,7 @@ def render():
                 new_job = st.text_input("الوظيفة", value=rec.get("job", ""), key=f"sj_{pick}")
                 new_salary = st.number_input("الراتب", value=float(rec.get("salary", 0) or 0), key=f"ss_{pick}")
                 new_phone = st.text_input("الهاتف", value=rec.get("phone", "") or "", key=f"sp_{pick}")
-                if st.button("💾 حفظ", key=f"ssave_{pick}"):
+                if confirm_action("حفظ تعديلات الموظف", key=f"ssave_{pick}"):
                     db.update_staff(pick, {"name": new_name, "job": new_job, "salary": new_salary, "phone": new_phone})
                     db.log_action("تعديل موظف", f"تعديل بيانات الموظف {pick}")
                     st.success("✅ تم الحفظ.")

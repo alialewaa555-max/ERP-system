@@ -9,7 +9,7 @@ import streamlit as st
 
 import db
 import pdf_utils
-from ui_helpers import smart_search_filter, split_screen_compare, image_viewer
+from ui_helpers import smart_search_filter, split_screen_compare, image_viewer, safe_pdf_export_button
 from permissions import can, require
 from config import (
     VOUCHER_STATUS_NEW,
@@ -75,8 +75,11 @@ def render():
                     st.write(f"اعتمده: {row.get('approved_by','-')}")
                     image_viewer(row.get("image_url"), key_prefix=f"appr_{row['voucher_no']}", caption="الصورة الأصلية")
                     if can("vouchers", "export"):
-                        pdf_bytes = pdf_utils.voucher_pdf(settings, row)
-                        st.download_button("📄 تصدير السند PDF (مختوم)", pdf_bytes, file_name=f"{row['voucher_no']}.pdf", key=f"pdf_{row['voucher_no']}")
+                        safe_pdf_export_button(
+                            f"تصدير سند {row['voucher_no']} (مختوم)",
+                            lambda row=row: pdf_utils.voucher_pdf(settings, row),
+                            f"{row['voucher_no']}.pdf", key=f"pdf_{row['voucher_no']}",
+                        )
 
     # -------------------- بحث ذكي شامل --------------------
     with tab_search:
@@ -91,8 +94,11 @@ def render():
             rec = filtered[filtered["voucher_no"] == pick].iloc[0].to_dict()
             image_viewer(rec.get("image_url"), key_prefix=f"srch_{pick}", caption="الصورة الأصلية")
             if can("vouchers", "export"):
-                pdf_bytes = pdf_utils.voucher_pdf(settings, rec)
-                st.download_button("📄 تصدير PDF", pdf_bytes, file_name=f"{pick}.pdf", key=f"srch_pdf_{pick}")
+                safe_pdf_export_button(
+                    f"تصدير سند {pick} PDF",
+                    lambda rec=rec: pdf_utils.voucher_pdf(settings, rec),
+                    f"{pick}.pdf", key=f"srch_pdf_{pick}",
+                )
 
 
 def _render_review_stage(row):

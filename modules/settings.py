@@ -10,7 +10,7 @@ import db
 import pdf_utils
 import excel_utils
 from auth import hash_password, verify_password
-from ui_helpers import confirm_action
+from ui_helpers import confirm_action, safe_pdf_export_button
 from permissions import can, require
 from config import THEMES, OWNER_ROLE_NAME, STORAGE_BUCKET
 
@@ -116,13 +116,16 @@ def render():
                     }
                     excel_bytes = excel_utils.multi_sheet_excel_bytes(sheets)
                     summary = {name: len(df) for name, df in sheets.items()}
-                    pdf_bytes = pdf_utils.full_backup_pdf(settings, summary)
 
                     db.log_action("نسخة احتياطية شاملة", "تم توليد نسخة احتياطية كاملة من كل بيانات النظام")
 
                     c1, c2 = st.columns(2)
                     c1.download_button("📊 تحميل النسخة الاحتياطية (Excel)", excel_bytes, file_name="full_backup.xlsx")
-                    c2.download_button("📄 تحميل ملخص PDF", pdf_bytes, file_name="full_backup_summary.pdf")
+                    try:
+                        pdf_bytes = pdf_utils.full_backup_pdf(settings, summary)
+                        c2.download_button("📄 تحميل ملخص PDF", pdf_bytes, file_name="full_backup_summary.pdf")
+                    except pdf_utils.ArabicFontMissingError as e:
+                        c2.error(str(e))
                     st.success("✅ النسخة الاحتياطية جاهزة للتحميل أعلاه.")
 
     # -------------------- حذف شامل --------------------

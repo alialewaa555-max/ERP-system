@@ -8,7 +8,7 @@ import streamlit as st
 import db
 import pdf_utils
 import excel_utils
-from ui_helpers import smart_search_filter, confirm_action
+from ui_helpers import smart_search_filter, confirm_action, safe_pdf_export_button
 from permissions import can, require
 from config import MACHINE_TYPES, MACHINE_STATUSES
 
@@ -42,12 +42,15 @@ def render():
         if can("fleet", "export"):
             c1, c2 = st.columns(2)
             c1.download_button("📊 تصدير Excel", excel_utils.df_to_excel_bytes(filtered, "الآليات"), file_name="fleet.xlsx")
-            pdf_bytes = pdf_utils.generic_table_pdf(
-                settings, "تقرير الآليات",
-                filtered.to_dict("records"),
-                ["code", "type", "driver", "status", "إجمالي التكاليف"],
-            )
-            c2.download_button("📄 تصدير PDF", pdf_bytes, file_name="fleet.pdf")
+            with c2:
+                safe_pdf_export_button(
+                    "تصدير PDF",
+                    lambda: pdf_utils.generic_table_pdf(
+                        settings, "تقرير الآليات", filtered.to_dict("records"),
+                        ["code", "type", "driver", "status", "إجمالي التكاليف"],
+                    ),
+                    "fleet.pdf", key="fleet_pdf",
+                )
 
         if filtered.empty:
             return
@@ -59,8 +62,12 @@ def render():
         related_vouchers = vdf[vdf["machine_code"] == pick] if not vdf.empty else pd.DataFrame()
         with st.expander(f"📄 مواصفات الآلية {pick}", expanded=True):
             st.write(f"**النوع:** {rec.get('type','')}")
+            st.write(f"**رقم الشاسيه:** {rec.get('chassis_no','') or '-'}")
+            st.write(f"**رقم المحرك:** {rec.get('engine_no','') or '-'}")
             st.write(f"**السائق:** {rec.get('driver','')}")
             st.write(f"**الحالة:** {rec.get('status','')}")
+            st.write(f"**دورية الصيانة:** كل {rec.get('maintenance_interval_days', 0) or 0} يوم")
+            st.write(f"**تاريخ الصيانة القادمة:** {rec.get('next_maintenance_date','') or '-'}")
             st.write(f"**إجمالي التكاليف:** {rec.get('إجمالي التكاليف',0):,.0f}")
             st.write(f"**ملاحظات:** {rec.get('notes','') or '-'}")
             if not related_vouchers.empty:
@@ -69,11 +76,18 @@ def render():
         if can("fleet", "edit"):
             with st.expander("✏️ تعديل بيانات الآلية"):
                 new_type = st.selectbox("النوع", MACHINE_TYPES, index=_safe_index(MACHINE_TYPES, rec.get("type")), key=f"ftype_{pick}")
+                new_chassis = st.text_input("رقم الشاسيه", value=rec.get("chassis_no", "") or "", key=f"fch_{pick}")
+                new_engine = st.text_input("رقم المحرك", value=rec.get("engine_no", "") or "", key=f"feng_{pick}")
                 new_driver = st.text_input("اسم السائق", value=rec.get("driver", ""), key=f"fdrv_{pick}")
                 new_status = st.selectbox("الحالة", MACHINE_STATUSES, index=_safe_index(MACHINE_STATUSES, rec.get("status")), key=f"fst_{pick}")
+                new_interval = st.number_input("دورية الصيانة (بالأيام)", min_value=0, step=1, value=int(rec.get("maintenance_interval_days", 90) or 90), key=f"fint_{pick}")
                 new_notes = st.text_area("ملاحظات", value=rec.get("notes", "") or "", key=f"fnt_{pick}")
-                if st.button("💾 حفظ", key=f"fsave_{pick}"):
-                    db.update_machine(pick, {"type": new_type, "driver": new_driver, "status": new_status, "notes": new_notes})
+                if confirm_action("حفظ تعديلات الآلية", key=f"fsave_{pick}"):
+                    db.update_machine(pick, {
+                        "type": new_type, "chassis_no": new_chassis, "engine_no": new_engine,
+                        "driver": new_driver, "status": new_status,
+                        "maintenance_interval_days": new_interval, "notes": new_notes,
+                    })
                     db.log_action("تعديل آلية", f"تعديل بيانات الآلية {pick}")
                     st.success("✅ تم الحفظ.")
                     st.rerun()
@@ -91,14 +105,24 @@ def render():
             return
         code = st.text_input("كود / رقم الآلية")
         mtype = st.selectbox("النوع", MACHINE_TYPES)
+        chassis_no = st.text_input("🔩 رقم الشاسيه")
+        engine_no = st.text_input("⚙️ رقم المحرك")
         driver = st.text_input("اسم السائق")
         status = st.selectbox("الحالة", MACHINE_STATUSES)
+        maintenance_interval_days = st.number_input("🛠️ دورية الصيانة (بالأيام)", min_value=0, step=1, value=90)
+        next_maintenance_date = st.date_input("📅 تاريخ الصيانة القادمة")
         notes = st.text_area("ملاحظات")
         if st.button("➕ إضافة الآلية", type="primary"):
             if not code:
                 st.error("⚠️ أدخل كود الآلية.")
             else:
-                ok = db.insert_machine({"code": code.strip(), "type": mtype, "driver": driver, "status": status, "notes": notes})
+                ok = db.insert_machine({
+                    "code": code.strip(), "type": mtype, "driver": driver, "status": status,
+                    "chassis_no": chassis_no, "engine_no": engine_no,
+                    "maintenance_interval_days": maintenance_interval_days,
+                    "next_maintenance_date": str(next_maintenance_date),
+                    "notes": notes,
+                })
                 if ok:
                     db.log_action("إضافة آلية", f"إضافة آلية جديدة {code}")
                     st.success("✅ تمت الإضافة.")
