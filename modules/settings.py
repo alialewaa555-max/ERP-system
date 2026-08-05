@@ -50,10 +50,11 @@ def render():
                     url = db.upload_image(STORAGE_BUCKET, stamp_file.getvalue(), "stamp.png", stamp_file.type, subfolder="branding")
                     if url:
                         fields["stamp_url"] = url
-                db.upsert_settings(fields)
-                db.log_action("تعديل إعدادات الهوية", "تحديث اسم الشركة / الشعار / الختم")
-                st.success("✅ تم الحفظ. ستظهر هذه العناصر تلقائياً في كل تقارير PDF.")
-                st.rerun()
+                ok = db.upsert_settings(fields)
+                if ok:
+                    db.log_action("تعديل إعدادات الهوية", "تحديث اسم الشركة / الشعار / الختم")
+                    st.success("✅ تم الحفظ. ستظهر هذه العناصر تلقائياً في كل تقارير PDF.")
+                    st.rerun()
 
         if can("settings", "theme"):
             st.markdown("---")
