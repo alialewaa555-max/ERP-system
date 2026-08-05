@@ -6,9 +6,9 @@
 #   - تنبيه صوتي + Toast عند وصول عنصر جديد يحتاج مراجعة/اعتماد
 #   - عارض صور بقابلية التكبير/التصغير/ملء الشاشة/المقارنة الثنائية
 #   - نافذة تأكيد إجراء موحّدة (حذف/إضافة/تعديل/تصدير...)
+#   - زر تصدير PDF آمن (يولّد فقط عند الطلب، ولا يُسقط الصفحة عند غياب الخط)
 # ==============================================================================
 
-import base64
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -178,6 +178,9 @@ def safe_pdf_export_button(label: str, generate_fn, file_name: str, key: str):
             "⬇️ تحميل الملف الجاهز", st.session_state[f"{key}_bytes"],
             file_name=file_name, key=f"{key}_dl",
         )
+
+
+def confirm_action(action_label: str, key: str, danger: bool = False, require_password: str = None) -> bool:
     """
     نافذة تأكيد موحّدة لأي إجراء (حذف/تعديل/تصدير شامل...).
     ترجع True فقط عند نقر المستخدم على تأكيد فعلياً.
