@@ -16,10 +16,9 @@ COOKIE_NAME = "suleiman_erp_session"
 try:
     import extra_streamlit_components as stx
 
+    @st.cache_resource
     def _get_cookie_manager():
-        if "cookie_manager" not in st.session_state:
-            st.session_state.cookie_manager = stx.CookieManager(key="suleiman_erp_cookie_manager")
-        return st.session_state.cookie_manager
+        return stx.CookieManager(key="suleiman_erp_cookie_manager")
 
     COOKIES_AVAILABLE = True
 except ImportError:
@@ -104,6 +103,7 @@ def try_restore_session():
         "username": user_row.get("username"),
         "role": user_row.get("role", ""),
         "permissions": user_row.get("permissions", {}),
+        "is_owner": bool(user_row.get("is_owner", False)),
     }
     st.session_state["session_token"] = token
 
@@ -143,6 +143,7 @@ def login(username: str, password: str):
         "username": user_row.get("username"),
         "role": user_row.get("role", ""),
         "permissions": user_row.get("permissions", {}),
+        "is_owner": bool(user_row.get("is_owner", False)),
     }
 
     token = db.create_session_token(username)

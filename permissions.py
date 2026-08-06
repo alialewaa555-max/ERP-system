@@ -15,7 +15,7 @@ def get_current_permissions() -> dict:
     user = st.session_state.get("user")
     if not user:
         return {}
-    if user.get("role") == OWNER_ROLE_NAME:
+    if user.get("is_owner"):
         return default_permissions_all_true()
     raw = user.get("permissions")
     if isinstance(raw, str):
@@ -36,7 +36,7 @@ def can(module: str, child: str = "access") -> bool:
     user = st.session_state.get("user")
     if not user:
         return False
-    if user.get("role") == OWNER_ROLE_NAME:
+    if user.get("is_owner"):
         return True
     perms = get_current_permissions()
     module_perms = perms.get(module, {})
