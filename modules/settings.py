@@ -149,7 +149,7 @@ def render():
                         for v in db.fetch_vouchers():
                             db.delete_voucher(v["id"])
                         for u in db.fetch_users():
-                            if u.get("role") != OWNER_ROLE_NAME:
+                            if not u.get("is_owner"):
                                 db.delete_user(u["username"])
                         db.log_action("حذف شامل", "تم حذف كل بيانات النظام بأمر مباشر من المالك")
                         st.success("✅ تم تنفيذ الحذف الشامل.")
@@ -158,6 +158,6 @@ def render():
 
 def _find_owner_row():
     for u in db.fetch_users():
-        if u.get("role") == OWNER_ROLE_NAME:
+        if u.get("is_owner"):
             return u
     return None

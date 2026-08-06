@@ -68,7 +68,7 @@ def render():
             return
         rec = rec_row.iloc[0].to_dict()
 
-        if rec.get("role") == OWNER_ROLE_NAME:
+        if rec.get("is_owner"):
             st.info("👑 هذا حساب المالك ويملك كل الصلاحيات دائماً ولا يمكن تعديل صلاحياته أو حذفه.")
             return
 
@@ -76,7 +76,7 @@ def render():
             with st.expander("✏️ تعديل بيانات المستخدم واسمه ورتبته"):
                 new_full_name = st.text_input("الاسم الكامل", value=rec.get("full_name", ""), key=f"un_{pick}")
                 new_role = st.text_input("اسم الصلاحية / الرتبة (اكتبها بنفسك)", value=rec.get("role", ""), key=f"ur_{pick}")
-                if st.button("💾 حفظ الاسم والرتبة", key=f"usave_{pick}"):
+                if confirm_action("حفظ الاسم والرتبة", key=f"usave_{pick}"):
                     db.update_user(pick, {"full_name": new_full_name, "role": new_role})
                     db.log_action("تعديل مستخدم", f"تعديل بيانات {pick}")
                     st.success("✅ تم الحفظ.")
@@ -100,7 +100,7 @@ def render():
                     except Exception:
                         existing_perms = {}
                 new_perms = _permission_editor(existing_perms, key_prefix=f"perm_{pick}")
-                if st.button("💾 حفظ الصلاحيات", key=f"psave_{pick}", type="primary"):
+                if confirm_action("حفظ الصلاحيات المخصصة", key=f"psave_{pick}"):
                     db.update_user(pick, {"permissions": new_perms})
                     db.log_action("تعديل صلاحيات", f"تعديل صلاحيات المستخدم {pick}")
                     st.success("✅ تم حفظ الصلاحيات المخصصة.")
@@ -128,6 +128,13 @@ def render():
         )
         password = st.text_input("كلمة المرور *", type="password")
 
+        is_owner_flag = False
+        current_user = st.session_state.get("user", {})
+        if current_user.get("is_owner"):
+            is_owner_flag = st.checkbox(
+                "👑 تعيين هذا الحساب كمالك مطلق (صلاحيات كاملة تلقائياً، لا يمكن حذفه أو تقييده لاحقاً)"
+            )
+
         st.markdown("##### 🛡️ شجرة الصلاحيات الدقيقة")
         st.caption(
             "حدد بدقة ما يمكن لهذا المستخدم فعله. مثال: لإنشاء 'موظف حركة' محصور فقط "
@@ -149,6 +156,7 @@ def render():
                     "password_hash": hash_password(password),
                     "permissions": new_perms,
                     "status": "نشط",
+                    "is_owner": is_owner_flag,
                 })
                 if ok:
                     db.log_action("إضافة مستخدم", f"إنشاء حساب جديد {username} بصلاحية {role_name}")
