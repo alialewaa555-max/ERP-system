@@ -51,35 +51,35 @@ def render():
                     "expenses.pdf", key="expenses_pdf",
                 )
 
-        if filtered.empty:
-            return
+if not filtered.empty:
+            st.markdown("#### 🔎 تعديل / حذف نفقة")
+            pick_title = st.selectbox("اختر نفقة", (filtered["title"] + " | " + filtered["id"]).tolist())
+            pick_id = pick_title.split(" | ")[-1]
+            rec = filtered[filtered["id"] == pick_id].iloc[0].to_dict()
 
-        st.markdown("#### 🔎 تعديل / حذف نفقة")
-        pick_title = st.selectbox("اختر نفقة", (filtered["title"] + " | " + filtered["id"]).tolist())
-        pick_id = pick_title.split(" | ")[-1]
-        rec = filtered[filtered["id"] == pick_id].iloc[0].to_dict()
+            if can("expenses", "edit"):
+                with st.expander("✏️ تعديل"):
+                    new_title = st.text_input("العنوان", value=rec.get("title", ""), key=f"et_{pick_id}")
+                    new_amount = st.number_input("التكلفة", value=float(rec.get("amount", 0) or 0), key=f"ea_{pick_id}")
+                    new_category = st.text_input("التصنيف", value=rec.get("category", "") or "", key=f"ec_{pick_id}")
+                    new_notes = st.text_area("ملاحظات", value=rec.get("notes", "") or "", key=f"en_{pick_id}")
+                    if confirm_action("حفظ تعديلات النفقة", key=f"esave_{pick_id}"):
+                        db.update_expense(pick_id, {
+                            "title": new_title, "amount": new_amount,
+                            "category": new_category, "notes": new_notes,
+                        })
+                        db.log_action("تعديل نفقة", f"تعديل النفقة {new_title}")
+                        st.success("✅ تم الحفظ.")
+                        st.rerun()
 
-        if can("expenses", "edit"):
-            with st.expander("✏️ تعديل"):
-                new_title = st.text_input("العنوان", value=rec.get("title", ""), key=f"et_{pick_id}")
-                new_amount = st.number_input("التكلفة", value=float(rec.get("amount", 0) or 0), key=f"ea_{pick_id}")
-                new_category = st.text_input("التصنيف", value=rec.get("category", "") or "", key=f"ec_{pick_id}")
-                new_notes = st.text_area("ملاحظات", value=rec.get("notes", "") or "", key=f"en_{pick_id}")
-                if confirm_action("حفظ تعديلات النفقة", key=f"esave_{pick_id}"):
-                    db.update_expense(pick_id, {
-                        "title": new_title, "amount": new_amount,
-                        "category": new_category, "notes": new_notes,
-                    })
-                    db.log_action("تعديل نفقة", f"تعديل النفقة {new_title}")
-                    st.success("✅ تم الحفظ.")
+            if can("expenses", "delete"):
+                if confirm_action(f"حذف النفقة ({rec.get('title','')}) نهائياً", key=f"edel_{pick_id}", danger=True):
+                    db.delete_expense(pick_id)
+                    db.log_action("حذف نفقة", f"حذف النفقة {rec.get('title','')}")
+                    st.success("🗑️ تم الحذف.")
                     st.rerun()
-
-        if can("expenses", "delete"):
-            if confirm_action(f"حذف النفقة ({rec.get('title','')}) نهائياً", key=f"edel_{pick_id}", danger=True):
-                db.delete_expense(pick_id)
-                db.log_action("حذف نفقة", f"حذف النفقة {rec.get('title','')}")
-                st.success("🗑️ تم الحذف.")
-                st.rerun()
+        else:
+            st.info("لا توجد نفقات مطابقة لعرض خيارات التعديل أو الحذف.")
 
     with tab_add:
         if not can("expenses", "add"):
