@@ -1,0 +1,12 @@
+streamlit>=1.38.0
+supabase>=2.7.0
+pandas>=2.2.0
+XlsxWriter>=3.2.0
+fpdf2>=2.7.9
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
+requests>=2.31.0
+extra-streamlit-components>=0.1.71
+streamlit-js-eval>=0.1.7
+streamlit-autorefresh>=1.0.1
+pydeck>=0.9.1
