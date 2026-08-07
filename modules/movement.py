@@ -36,19 +36,20 @@ def _render_new_reading():
     fleet_df = pd.DataFrame(fleet) if fleet else pd.DataFrame(columns=["code", "type", "driver"])
     user = st.session_state.get("user", {})
 
+machine_code = None
     if can("movement", "select_machine"):
         query = st.text_input("🔍 ابحث عن الآلية")
         filtered = smart_search_filter(fleet_df, ["code", "driver", "type"], query)
         if filtered.empty:
-            st.warning("لا توجد نتائج.")
-            return
-        options = [f"{r['code']} - {r.get('type','')} - سائق: {r.get('driver','')}" for _, r in filtered.iterrows()]
-        codes = filtered["code"].tolist()
-        choice = st.selectbox("اختر الآلية", options)
-        machine_code = codes[options.index(choice)] if choice else None
+            st.warning("⚠️ لا توجد آليات مسجلة أو نتائج مطابقة حالياً.")
+        else:
+            options = [f"{r['code']} - {r.get('type','')} - سائق: {r.get('driver','')}" for _, r in filtered.iterrows()]
+            codes = filtered["code"].tolist()
+            choice = st.selectbox("اختر الآلية", options)
+            if choice:
+                machine_code = codes[options.index(choice)]
     else:
         st.error("لا تملك صلاحية اختيار الآلية.")
-        return
 
     odometer_value = st.number_input("🔢 قراءة العداد الحالية (اختياري - يمكن الاكتفاء بالصورة)", min_value=0.0, step=1.0)
 
