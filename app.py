@@ -15,7 +15,6 @@ import auth
 import db
 from config import TRANSLATIONS, LANGUAGES, THEMES, DEFAULT_SETTINGS
 from permissions import visible_menu_keys, can_access_module
-
 from modules import expenses, movement, purchases, staff, vendors, vouchers
 st.set_page_config(
     page_title="Suleiman ERP",
