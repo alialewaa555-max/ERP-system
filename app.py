@@ -16,10 +16,7 @@ import db
 from config import TRANSLATIONS, LANGUAGES, THEMES, DEFAULT_SETTINGS
 from permissions import visible_menu_keys, can_access_module
 
-from modules import (
-    dashboard, purchases, vouchers, vendors, fleet, expenses,
-    movement, staff, audit, users_rbac, settings as settings_module, tracking,
-)
+from modules import dashboard, purchases, vouchers, vendors, fleet, expenses, movement, staff, audit, users_rbac, settings as settings_module, tracking
 
 st.set_page_config(
     page_title="Suleiman ERP",
