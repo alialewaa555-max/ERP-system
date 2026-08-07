@@ -18,16 +18,18 @@ def render():
 
     settings = db.fetch_settings() or {}
     staff = db.fetch_staff()
-    sdf = pd.DataFrame(staff) if staff else pd.DataFrame(columns=["emp_id", "name", "job", "salary", "status", "phone"])
+    sdf = pd.DataFrame(staff) if staff else pd.DataFrame(columns=["emp_id", "name", "job", "salary", "status", "phone", "notes"])
 
     tab_list, tab_add = st.tabs(["📋 قائمة الموظفين", "➕ إضافة موظف"])
 
     with tab_list:
-        query = st.text_input("🔍 بحث ذكي عن موظف بالاسم أو الوظيفة أو رقم الهاتف")
+        query = st.text_input("🔍 بحث ذكي عن موظف بالاسم أو الوظيفة أو رقم الهاتف", key="staff_list_query")
         filtered = smart_search_filter(sdf, ["emp_id", "name", "job", "phone", "status"], query)
 
         select_col = "✅ تحديد"
         display_df = filtered.copy()
+        selected_ids = []
+        
         if can("staff", "bulk_actions") and not display_df.empty:
             display_df.insert(0, select_col, False)
             edited = st.data_editor(
@@ -38,7 +40,6 @@ def render():
             selected_ids = edited[edited[select_col]]["emp_id"].tolist()
         else:
             st.dataframe(display_df, use_container_width=True, hide_index=True)
-            selected_ids = []
 
         if selected_ids and can("staff", "bulk_actions"):
             st.info(f"تم تحديد {len(selected_ids)} موظف.")
@@ -49,7 +50,7 @@ def render():
                 st.success("✅ تم تطبيق الإجراء.")
                 st.rerun()
 
-        if can("staff", "export"):
+        if can("staff", "export") and not filtered.empty:
             c1, c2 = st.columns(2)
             c1.download_button("📊 تصدير Excel", excel_utils.df_to_excel_bytes(filtered, "الموظفين"), file_name="staff.xlsx")
             with c2:
@@ -62,73 +63,76 @@ def render():
                     "staff.pdf", key="staff_pdf",
                 )
 
-        if filtered.empty:
-            return
+        st.markdown("---")
+        if not filtered.empty:
+            st.markdown("#### 🔎 تفاصيل / تعديل / حذف / حظر موظف")
+            pick = st.selectbox("اختر موظفاً", filtered["emp_id"].tolist(), key="staff_pick_select")
+            rec = filtered[filtered["emp_id"] == pick].iloc[0].to_dict()
 
-        st.markdown("#### 🔎 تفاصيل / تعديل / حذف / حظر موظف")
-        pick = st.selectbox("اختر موظفاً", filtered["emp_id"].tolist())
-        rec = filtered[filtered["emp_id"] == pick].iloc[0].to_dict()
+            with st.expander("📄 بيانات الموظف", expanded=True):
+                for k, v in rec.items():
+                    st.write(f"**{k}:** {v}")
 
-        with st.expander("📄 بيانات الموظف", expanded=True):
-            for k, v in rec.items():
-                st.write(f"**{k}:** {v}")
-
-        if can("staff", "edit"):
-            with st.expander("✏️ تعديل"):
-                new_name = st.text_input("الاسم", value=rec.get("name", ""), key=f"sn_{pick}")
-                new_job = st.text_input("الوظيفة", value=rec.get("job", ""), key=f"sj_{pick}")
-                new_salary = st.number_input("الراتب", value=float(rec.get("salary", 0) or 0), key=f"ss_{pick}")
-                new_phone = st.text_input("الهاتف", value=rec.get("phone", "") or "", key=f"sp_{pick}")
-                if confirm_action("حفظ تعديلات الموظف", key=f"ssave_{pick}"):
-                    db.update_staff(pick, {"name": new_name, "job": new_job, "salary": new_salary, "phone": new_phone})
-                    db.log_action("تعديل موظف", f"تعديل بيانات الموظف {pick}")
-                    st.success("✅ تم الحفظ.")
-                    st.rerun()
-
-        c1, c2 = st.columns(2)
-        if can("staff", "ban"):
-            with c1:
-                if rec.get("status") != "محظور":
-                    if st.button("⛔ حظر هذا الموظف", key=f"ban_{pick}"):
-                        db.update_staff(pick, {"status": "محظور"})
-                        db.log_action("حظر موظف", f"تم حظر الموظف {pick}")
-                        st.success("⛔ تم الحظر.")
-                        st.rerun()
-                else:
-                    if st.button("✅ رفع الحظر", key=f"unban_{pick}"):
-                        db.update_staff(pick, {"status": "نشط"})
-                        db.log_action("رفع حظر موظف", f"تم رفع الحظر عن {pick}")
+            if can("staff", "edit"):
+                with st.expander("✏️ تعديل"):
+                    new_name = st.text_input("الاسم", value=rec.get("name", ""), key=f"sn_{pick}")
+                    new_job = st.text_input("الوظيفة", value=rec.get("job", ""), key=f"sj_{pick}")
+                    new_salary = st.number_input("الراتب", value=float(rec.get("salary", 0) or 0), key=f"ss_{pick}")
+                    new_phone = st.text_input("الهاتف", value=rec.get("phone", "") or "", key=f"sp_{pick}")
+                    if confirm_action("حفظ تعديلات الموظف", key=f"ssave_{pick}"):
+                        db.update_staff(pick, {"name": new_name, "job": new_job, "salary": new_salary, "phone": new_phone})
+                        db.log_action("تعديل موظف", f"تعديل بيانات الموظف {pick}")
+                        st.success("✅ تم الحفظ.")
                         st.rerun()
 
-        if can("staff", "delete"):
-            with c2:
-                if confirm_action(f"حذف الموظف {pick} نهائياً", key=f"sdel_{pick}", danger=True):
-                    db.delete_staff(pick)
-                    db.log_action("حذف موظف", f"حذف الموظف {pick}")
-                    st.success("🗑️ تم الحذف.")
-                    st.rerun()
+            c1, c2 = st.columns(2)
+            if can("staff", "ban"):
+                with c1:
+                    if rec.get("status") != "محظور":
+                        if st.button("⛔ حظر هذا الموظف", key=f"ban_{pick}"):
+                            db.update_staff(pick, {"status": "محظور"})
+                            db.log_action("حظر موظف", f"تم حظر الموظف {pick}")
+                            st.success("⛔ تم الحظر.")
+                            st.rerun()
+                    else:
+                        if st.button("✅ رفع الحظر", key=f"unban_{pick}"):
+                            db.update_staff(pick, {"status": "نشط"})
+                            db.log_action("رفع حظر موظف", f"تم رفع الحظر عن {pick}")
+                            st.success("✅ تم رفع الحظر.")
+                            st.rerun()
+
+            if can("staff", "delete"):
+                with c2:
+                    if confirm_action(f"حذف الموظف {pick} نهائياً", key=f"sdel_{pick}", danger=True):
+                        db.delete_staff(pick)
+                        db.log_action("حذف موظف", f"حذف الموظف {pick}")
+                        st.success("🗑️ تم الحذف.")
+                        st.rerun()
+        else:
+            st.info("لا توجد بيانات موظفين مطابقة لعرض التفاصيل أو التعديل.")
 
     with tab_add:
         if not can("staff", "add"):
             st.error("لا تملك صلاحية إضافة موظف.")
-            return
-        emp_id = st.text_input("الرقم الوظيفي")
-        name = st.text_input("الاسم الكامل")
-        job = st.text_input("الوظيفة / الورشة")
-        salary = st.number_input("الراتب", min_value=0.0, step=50000.0)
-        phone = st.text_input("رقم الهاتف")
-        notes = st.text_area("ملاحظات")
-        if st.button("➕ إضافة الموظف", type="primary"):
-            if not emp_id or not name:
-                st.error("⚠️ الرقم الوظيفي والاسم إلزاميان.")
-            else:
-                ok = db.insert_staff({
-                    "emp_id": emp_id.strip(), "name": name, "job": job,
-                    "salary": salary, "phone": phone, "notes": notes, "status": "نشط",
-                })
-                if ok:
-                    db.log_action("إضافة موظف", f"إضافة الموظف {name} ({emp_id})")
-                    st.success("✅ تمت الإضافة.")
-                    st.rerun()
+        else:
+            emp_id = st.text_input("الرقم الوظيفي", key="add_emp_id")
+            name = st.text_input("الاسم الكامل", key="add_name")
+            job = st.text_input("الوظيفة / الورشة", key="add_job")
+            salary = st.number_input("الراتب", min_value=0.0, step=50000.0, key="add_salary")
+            phone = st.text_input("رقم الهاتف", key="add_phone")
+            notes = st.text_area("ملاحظات", key="add_notes")
+            
+            if st.button("➕ إضافة الموظف", type="primary", key="btn_submit_staff"):
+                if not emp_id or not name:
+                    st.error("⚠️ الرقم الوظيفي والاسم إلزاميان.")
                 else:
-                    st.error("❌ فشلت العملية، ربما الرقم الوظيفي مستخدم مسبقاً.")
+                    ok = db.insert_staff({
+                        "emp_id": emp_id.strip(), "name": name, "job": job,
+                        "salary": salary, "phone": phone, "notes": notes, "status": "نشط",
+                    })
+                    if ok:
+                        db.log_action("إضافة موظف", f"إضافة الموظف {name} ({emp_id})")
+                        st.success("✅ تمت الإضافة بنجاح.")
+                        st.rerun()
+                    else:
+                        st.error("❌ فشلت العملية، ربما الرقم الوظيفي مستخدم مسبقاً.")
