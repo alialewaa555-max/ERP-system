@@ -36,10 +36,12 @@ def render():
 
     settings = db.fetch_settings() or {}
     user = st.session_state.get("user", {})
-    vouchers = db.fetch_vouchers()
+vouchers = db.fetch_vouchers()
     if not vouchers:
         st.info("لا توجد سندات حالياً.")
-        return
+        df = pd.DataFrame(columns=["voucher_no", "vendor", "machine_code", "amount", "status", "created_at"])
+    else:
+        df = pd.DataFrame(vouchers)
 
     df = pd.DataFrame(vouchers)
 
